@@ -35,6 +35,12 @@ MANIFEST
 repositories/
 vector-db/
 
+# Allow ai-service-specific folders to be committed (keep empty dirs for Render)
+!ai-service/repositories/
+!ai-service/repositories/.gitkeep
+!ai-service/vector-db/
+!ai-service/vector-db/.gitkeep
+
 # Environment Variables
 .env
 .env.local
