@@ -1,0 +1,121 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 224 71% 4%;
+    --foreground: 213 31% 91%;
+
+    --muted: 223 47% 11%;
+    --muted-foreground: 215.4 16.3% 56.9%;
+
+    --popover: 224 71% 4%;
+    --popover-foreground: 213 31% 91%;
+
+    --card: 222 47% 6%;
+    --card-foreground: 213 31% 91%;
+
+    --border: 217 32% 14%;
+    --input: 217 32% 14%;
+
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 47% 11.2%;
+
+    --secondary: 222 47% 11.2%;
+    --secondary-foreground: 210 40% 98%;
+
+    --accent: 216 34% 17%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --ring: 224 71% 54%;
+
+    --radius: 0.75rem;
+  }
+}
+
+body {
+  font-family: 'Outfit', sans-serif;
+  overflow: hidden;
+}
+
+code, pre, .monaco-editor {
+  font-family: 'Fira Code', monospace !important;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsla(var(--primary), 0.5);
+}
+
+/* Custom UI Classes */
+.glass-panel {
+  background: rgba(10, 15, 30, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.glass-card {
+  background: rgba(15, 22, 42, 0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  border-color: rgba(59, 130, 246, 0.25);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.active-glow {
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+/* React Flow customizations to fit dark theme */
+.react-flow__renderer {
+  background-color: hsl(var(--background)) !important;
+}
+.react-flow__node {
+  background: rgba(15, 22, 42, 0.95) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  color: hsl(var(--foreground)) !important;
+  border-radius: 8px !important;
+  font-family: 'Outfit', sans-serif !important;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3) !important;
+}
+.react-flow__node.selected {
+  border-color: hsl(var(--primary)) !important;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.3) !important;
+}
+.react-flow__edge-path {
+  stroke: hsl(var(--border)) !important;
+  stroke-width: 2 !important;
+}
+.react-flow__controls-button {
+  background: hsl(var(--card)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  fill: hsl(var(--foreground)) !important;
+}
+.react-flow__controls-button:hover {
+  background: hsl(var(--accent)) !important;
+}
+.react-flow__attribution {
+  display: none !important;
+}
