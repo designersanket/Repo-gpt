@@ -4,12 +4,18 @@ import { AppContext } from '../context/AppContext';
 
 export const useWebSocket = () => {
   const socketRef = useRef(null);
-  const { setIndexingStatus, setCloneProgress, fetchRepos, loadRepoDetails } = useContext(AppContext);
+
+  const {
+    setIndexingStatus,
+    setCloneProgress,
+    fetchRepos,
+    loadRepoDetails,
+  } = useContext(AppContext);
 
   useEffect(() => {
-    socketRef.current = io(window.location.origin, {
+    socketRef.current = io(import.meta.env.VITE_BACKEND_URL, {
       path: '/code-mind-socket.io',
-      transports: ['websocket'],
+      transports: ['websocket', 'polling'],
       autoConnect: true,
     });
 
@@ -17,22 +23,34 @@ export const useWebSocket = () => {
       console.log('Connected to RepoGPT WebSockets.');
     });
 
-    // High-level pipeline stage updates
+    socketRef.current.on('connect_error', (err) => {
+      console.error('WebSocket Connection Error:', err);
+    });
+
+    // High-level indexing progress
     socketRef.current.on('indexing-progress', (data) => {
+      console.log('Indexing Progress:', data);
+
       setIndexingStatus({
         repoId: data.repoId,
         status: data.status,
         progress: data.progress,
         error: data.error,
       });
+
       if (data.status === 'ready' || data.status === 'failed') {
         fetchRepos();
-        if (data.status === 'ready') loadRepoDetails(data.repoId);
+
+        if (data.status === 'ready') {
+          loadRepoDetails(data.repoId);
+        }
       }
     });
 
-    // Granular git clone progress
+    // Git clone progress
     socketRef.current.on('clone-progress', (data) => {
+      console.log('Clone Progress:', data);
+
       setCloneProgress({
         repoId: data.repoId,
         stage: data.stage,
@@ -48,7 +66,9 @@ export const useWebSocket = () => {
       console.log('Disconnected from RepoGPT WebSockets.');
     });
 
-    return () => socketRef.current?.disconnect();
+    return () => {
+      socketRef.current?.disconnect();
+    };
   }, []);
 
   const joinRepoRoom = (repoId) => {
