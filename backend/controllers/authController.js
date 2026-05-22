@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+const { getUsageDocument } = require('../services/usageService');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'codemind-super-secret-key-123';
 const JWT_EXPIRE = '30d';
@@ -25,12 +26,13 @@ exports.register = async (req, res) => {
     }
 
     const user = await User.create({ username, email, password });
+    await getUsageDocument(user._id);
     const token = generateToken(user._id);
 
     res.status(201).json({
       success: true,
       token,
-      user: { id: user._id, username: user.username, email: user.email },
+      user: { id: user._id, username: user.username, email: user.email, isAdmin: Boolean(user.isAdmin) },
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -64,7 +66,7 @@ exports.login = async (req, res) => {
     res.status(200).json({
       success: true,
       token,
-      user: { id: user._id, username: user.username, email: user.email },
+      user: { id: user._id, username: user.username, email: user.email, isAdmin: Boolean(user.isAdmin) },
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

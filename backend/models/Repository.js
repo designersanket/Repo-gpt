@@ -13,6 +13,10 @@ const RepositorySchema = new mongoose.Schema({
   fileTree: { type: mongoose.Schema.Types.Mixed },
   languages: [{ type: String }],
   pathOnDisk: { type: String, required: true },
+  repoHash: { type: String, default: '' },
+  repoSizeMB: { type: Number, default: 0 },
+  fileCount: { type: Number, default: 0 },
+  lastIndexedAt: { type: Date },
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

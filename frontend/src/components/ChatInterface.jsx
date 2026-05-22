@@ -6,7 +6,7 @@ import remarkGfm from 'remark-gfm';
 import { Send, FileText, Code, CornerDownRight, HelpCircle, Terminal } from 'lucide-react';
 
 export default function ChatInterface() {
-  const { activeRepo, selectFile, setHighlightedLines } = useContext(AppContext);
+  const { activeRepo, selectFile, setHighlightedLines, refreshUserSettings } = useContext(AppContext);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -62,6 +62,7 @@ export default function ChatInterface() {
           createdAt: new Date()
         };
         setMessages((prev) => [...prev, assistantMsg]);
+        refreshUserSettings?.();
       }
     } catch (err) {
       const errMsg = {

@@ -22,6 +22,11 @@ const { initSocket } = require('./websocket/socketHandler');
 const authRoutes = require('./routes/authRoutes');
 const repoRoutes = require('./routes/repoRoutes');
 const chatRoutes = require('./routes/chatRoutes');
+const userRoutes = require('./routes/userRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+const { authLimiter, chatLimiter, repoLimiter } = require('./middleware/rateLimiter');
+const errorHandler = require('./middleware/errorHandler');
+const { scheduleDailyReset } = require('./services/usageService');
 
 // 1. Connect MongoDB
 connectDB();
@@ -38,9 +43,11 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // 3. Mount Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/repos', repoRoutes);
-app.use('/api/chat', chatRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/repos', repoLimiter, repoRoutes);
+app.use('/api/chat', chatLimiter, chatRoutes);
+app.use('/api/user', userRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -51,10 +58,16 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Global error handling
+app.use(errorHandler);
+
 // 4. Initialize WebSockets
 initSocket(server);
 
-// 5. Start Server
+// 5. Daily usage reset job
+scheduleDailyReset();
+
+// 6. Start Server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`RepoGPT Backend running on port ${PORT}`);

@@ -115,6 +115,36 @@ const api = {
 
     return res.data;
   },
+
+  getUserSettings: async () => {
+    const res = await axiosInstance.get('/user/settings');
+    return res.data;
+  },
+
+  saveUserApiKey: async (apiKey, apiProvider) => {
+    const res = await axiosInstance.post('/user/settings/api-key', { apiKey, apiProvider });
+    return res.data;
+  },
+
+  removeUserApiKey: async () => {
+    const res = await axiosInstance.delete('/user/settings/api-key');
+    return res.data;
+  },
+
+  getAdminSummary: async () => {
+    const res = await axiosInstance.get('/admin/summary');
+    return res.data;
+  },
+
+  getAdminTopUsers: async () => {
+    const res = await axiosInstance.get('/admin/top-users');
+    return res.data;
+  },
+
+  getAdminViolations: async () => {
+    const res = await axiosInstance.get('/admin/violations');
+    return res.data;
+  },
 };
 
 export default api;

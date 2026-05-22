@@ -3,6 +3,9 @@ const fs = require('fs');
 const Repository = require('../models/Repository');
 const gitService = require('../services/gitService');
 const aiServiceClient = require('../services/aiServiceClient');
+const { incrementUsage } = require('../services/usageService');
+const { resolveApiKeyForUser } = require('../services/apiKeyService');
+const { DAILY_LIMITS } = require('../config/usageConfig');
 const socketHandler = require('../websocket/socketHandler');
 
 const REPOSITORIES_DIR = process.env.REPOSITORIES_DIR
@@ -13,7 +16,7 @@ if (!fs.existsSync(REPOSITORIES_DIR)) {
   fs.mkdirSync(REPOSITORIES_DIR, { recursive: true });
 }
 
-const runBackgroundIndexing = async (repo, isZipUpload = false, tempZipPath = null) => {
+const runBackgroundIndexing = async (repo, isZipUpload = false, tempZipPath = null, apiOptions = {}) => {
   const repoId = repo._id.toString();
   const userId = repo.userId.toString();
   const repoPath = path.join(REPOSITORIES_DIR, repoId);
@@ -34,16 +37,29 @@ const runBackgroundIndexing = async (repo, isZipUpload = false, tempZipPath = nu
     socketHandler.emitProgress(userId, repoId, 'parsing', 40);
     const languages = gitService.detectLanguages(repoPath);
     const fileTree = gitService.buildFileTree(repoPath);
+    const fingerprint = await gitService.computeRepoFingerprint(repoPath);
     repo.languages = languages;
     repo.fileTree = fileTree;
+    repo.repoHash = fingerprint.hash;
+    repo.repoSizeMB = fingerprint.totalSizeMB;
+    repo.fileCount = fingerprint.fileCount;
     repo.status = 'parsing';
     await repo.save();
 
     socketHandler.emitProgress(userId, repoId, 'indexing', 70);
-    await aiServiceClient.indexRepository(repoId, repoPath, repo.gitUrl);
+    await aiServiceClient.indexRepository(repoId, repoPath, repo.gitUrl, {
+      apiKey: apiOptions.apiKey,
+      apiProvider: apiOptions.apiProvider,
+      repoHash: fingerprint.hash,
+    });
+
+    if (apiOptions.userId) {
+      await incrementUsage(apiOptions.userId, { embeddingRequests: 1 });
+    }
 
     repo.status = 'ready';
     repo.progress = 100;
+    repo.lastIndexedAt = new Date();
     await repo.save();
     socketHandler.emitProgress(userId, repoId, 'ready', 100);
 
@@ -72,39 +88,76 @@ const findOwnedRepo = async (repoId, userId) => {
 exports.cloneRepo = async (req, res) => {
   try {
     const { gitUrl, name } = req.body;
-    if (!gitUrl) return res.status(400).json({ success: false, error: 'Please provide a Git URL' });
+    if (!gitUrl) return res.status(400).json({ success: false, code: 'INVALID_REQUEST', message: 'Please provide a Git URL' });
+
+    const estimate = await gitService.estimateRepositorySize(gitUrl);
+    if (estimate.totalSizeMB > DAILY_LIMITS.maxRepoSizeMB) {
+      return res.status(413).json({ success: false, code: 'REPO_TOO_LARGE', message: `Repository exceeds the allowed size of ${DAILY_LIMITS.maxRepoSizeMB}MB.` });
+    }
+    if (estimate.fileCount > DAILY_LIMITS.maxRepoFiles) {
+      return res.status(413).json({ success: false, code: 'TOO_MANY_FILES', message: `Repository exceeds the file limit of ${DAILY_LIMITS.maxRepoFiles}.` });
+    }
 
     const repoName = name || gitUrl.split('/').pop().replace('.git', '') || 'unnamed-repo';
     const repo = await Repository.create({
-      name: repoName, gitUrl, status: 'cloning', progress: 10,
-      pathOnDisk: 'pending', userId: req.user._id,
+      name: repoName,
+      gitUrl,
+      status: 'cloning',
+      progress: 10,
+      pathOnDisk: 'pending',
+      userId: req.user._id,
+      repoSizeMB: estimate.totalSizeMB,
+      fileCount: estimate.fileCount,
     });
     repo.pathOnDisk = path.join(REPOSITORIES_DIR, repo._id.toString());
     await repo.save();
 
-    runBackgroundIndexing(repo, false);
+    const { apiKey, apiProvider } = resolveApiKeyForUser(req.user);
+    await incrementUsage(req.user._id, { repoClones: 1 });
+    runBackgroundIndexing(repo, false, null, { apiKey, apiProvider, userId: req.user._id });
     res.status(202).json({ success: true, message: 'Cloning started.', data: repo });
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    console.error('Clone repo error:', error.message || error);
+    res.status(500).json({ success: false, code: 'CLONE_FAILED', message: error.message || 'Repository clone failed.' });
   }
 };
 
 exports.uploadZip = async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ success: false, error: 'Please upload a ZIP file' });
+    if (!req.file) return res.status(400).json({ success: false, code: 'INVALID_REQUEST', message: 'Please upload a ZIP file' });
 
     const repoName = req.file.originalname.replace('.zip', '') || 'uploaded-zip';
     const repo = await Repository.create({
-      name: repoName, gitUrl: 'uploaded_zip', status: 'cloning', progress: 10,
-      pathOnDisk: 'pending', userId: req.user._id,
+      name: repoName,
+      gitUrl: 'uploaded_zip',
+      status: 'cloning',
+      progress: 10,
+      pathOnDisk: 'pending',
+      userId: req.user._id,
     });
     repo.pathOnDisk = path.join(REPOSITORIES_DIR, repo._id.toString());
     await repo.save();
 
-    runBackgroundIndexing(repo, true, req.file.path);
+    const metrics = await gitService.computeZipArchiveMetrics(req.file.path);
+    if (metrics.totalSizeMB > DAILY_LIMITS.maxRepoSizeMB || metrics.fileCount > DAILY_LIMITS.maxRepoFiles) {
+      return res.status(413).json({
+        success: false,
+        code: 'REPO_TOO_LARGE',
+        message: `Uploaded repository exceeds the allowed limits of ${DAILY_LIMITS.maxRepoSizeMB}MB or ${DAILY_LIMITS.maxRepoFiles} files.`,
+      });
+    }
+
+    repo.repoSizeMB = metrics.totalSizeMB;
+    repo.fileCount = metrics.fileCount;
+    await repo.save();
+    await incrementUsage(req.user._id, { repoClones: 1 });
+    const { apiKey, apiProvider } = resolveApiKeyForUser(req.user);
+
+    runBackgroundIndexing(repo, true, req.file.path, { apiKey, apiProvider, userId: req.user._id });
     res.status(202).json({ success: true, message: 'ZIP upload accepted.', data: repo });
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    console.error('Upload zip error:', error.message || error);
+    res.status(500).json({ success: false, code: 'ZIP_UPLOAD_FAILED', message: error.message || 'ZIP upload failed.' });
   }
 };
 
@@ -141,6 +194,53 @@ exports.deleteRepo = async (req, res) => {
   }
 };
 
+exports.refreshEmbeddings = async (req, res) => {
+  try {
+    const repo = await findOwnedRepo(req.params.id, req.user._id);
+    if (!repo) return res.status(404).json({ success: false, error: 'Repository not found' });
+    if (repo.status !== 'ready') {
+      return res.status(400).json({ success: false, error: 'Repository must be ready before refreshing embeddings.' });
+    }
+
+    repo.status = 'indexing';
+    repo.progress = 60;
+    repo.error = '';
+    await repo.save();
+
+    const { apiKey, apiProvider } = resolveApiKeyForUser(req.user);
+    const userId = req.user._id.toString();
+    const repoId = repo._id.toString();
+    const repoPath = repo.pathOnDisk;
+
+    (async () => {
+      try {
+        socketHandler.emitProgress(userId, repoId, 'indexing', 70);
+        const fingerprint = await gitService.computeRepoFingerprint(repoPath);
+        await aiServiceClient.indexRepository(repoId, repoPath, repo.gitUrl, {
+          apiKey,
+          apiProvider,
+          repoHash: fingerprint.hash,
+        });
+        repo.status = 'ready';
+        repo.progress = 100;
+        repo.repoHash = fingerprint.hash;
+        repo.lastIndexedAt = new Date();
+        await repo.save();
+        socketHandler.emitProgress(userId, repoId, 'ready', 100);
+      } catch (err) {
+        repo.status = 'failed';
+        repo.error = err.message || 'Embedding refresh failed';
+        await repo.save();
+        socketHandler.emitProgress(userId, repoId, 'failed', 0, repo.error);
+      }
+    })();
+
+    res.status(202).json({ success: true, message: 'Embedding refresh started.' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 exports.reindexRepo = async (req, res) => {
   try {
     const repo = await findOwnedRepo(req.params.id, req.user._id);
@@ -155,12 +255,20 @@ exports.reindexRepo = async (req, res) => {
     const repoId = repo._id.toString();
     const repoPath = repo.pathOnDisk;
 
+    const { apiKey, apiProvider } = resolveApiKeyForUser(req.user);
     (async () => {
       try {
         socketHandler.emitProgress(userId, repoId, 'indexing', 70);
-        await aiServiceClient.indexRepository(repoId, repoPath, repo.gitUrl);
+        const fingerprint = await gitService.computeRepoFingerprint(repoPath);
+        await aiServiceClient.indexRepository(repoId, repoPath, repo.gitUrl, {
+          apiKey,
+          apiProvider,
+          repoHash: fingerprint.hash,
+        });
         repo.status = 'ready';
         repo.progress = 100;
+        repo.lastIndexedAt = new Date();
+        repo.repoHash = fingerprint.hash;
         await repo.save();
         socketHandler.emitProgress(userId, repoId, 'ready', 100);
       } catch (err) {

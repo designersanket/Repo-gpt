@@ -1,4 +1,5 @@
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { spawn } = require('child_process');
 const AdmZip = require('adm-zip');
@@ -89,6 +90,17 @@ const cloneRepository = (gitUrl, targetDir, onProgress) => {
   });
 };
 
+const estimateRepositorySize = async (gitUrl) => {
+  const tempDir = path.join(os.tmpdir(), `repo-estimate-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  try {
+    await cloneRepository(gitUrl, tempDir, () => {});
+    const metrics = computeRepositoryMetrics(tempDir);
+    return metrics;
+  } finally {
+    await removeDir(tempDir);
+  }
+};
+
 /**
  * Extracts an uploaded ZIP archive to target directory.
  */
@@ -100,6 +112,77 @@ const extractZip = async (zipPath, targetDir) => {
 
   const zip = new AdmZip(zipPath);
   zip.extractAllTo(targetDir, true);
+};
+
+const computeZipArchiveMetrics = async (zipPath) => {
+  const zip = new AdmZip(zipPath);
+  const entries = zip.getEntries().filter((entry) => !entry.isDirectory);
+  const fileCount = entries.length;
+  const totalBytes = entries.reduce((sum, entry) => sum + (entry.header?.size || 0), 0);
+  return {
+    fileCount,
+    totalSizeMB: Number((totalBytes / 1024 / 1024).toFixed(2)),
+    totalBytes,
+  };
+};
+
+const computeRepositoryMetrics = (dirPath) => {
+  const traverse = (currentPath) => {
+    let fileCount = 0;
+    let totalBytes = 0;
+    if (!fs.existsSync(currentPath)) return { fileCount, totalBytes };
+
+    const stat = fs.statSync(currentPath);
+    if (stat.isFile()) {
+      return { fileCount: 1, totalBytes: stat.size };
+    }
+
+    const entries = fs.readdirSync(currentPath);
+    for (const entry of entries) {
+      if (['node_modules', '.git', 'dist', 'build', 'venv', '.venv', '__pycache__'].includes(entry)) continue;
+      const result = traverse(path.join(currentPath, entry));
+      fileCount += result.fileCount;
+      totalBytes += result.totalBytes;
+    }
+    return { fileCount, totalBytes };
+  };
+
+  const metrics = traverse(dirPath);
+  return {
+    fileCount: metrics.fileCount,
+    totalBytes: metrics.totalBytes,
+    totalSizeMB: Number((metrics.totalBytes / 1024 / 1024).toFixed(2)),
+  };
+};
+
+const computeRepoFingerprint = async (repoPath) => {
+  const fileEntries = [];
+
+  const collect = (currentPath) => {
+    if (!fs.existsSync(currentPath)) return;
+    const stat = fs.statSync(currentPath);
+    if (stat.isDirectory()) {
+      const entries = fs.readdirSync(currentPath);
+      for (const entry of entries) {
+        if (['node_modules', '.git', 'dist', 'build', 'venv', '.venv', '__pycache__'].includes(entry)) continue;
+        collect(path.join(currentPath, entry));
+      }
+      return;
+    }
+    const relative = path.relative(repoPath, currentPath).replace(/\\/g, '/');
+    fileEntries.push({ path: relative, size: stat.size });
+  };
+
+  collect(repoPath);
+  fileEntries.sort((a, b) => a.path.localeCompare(b.path));
+
+  const metrics = computeRepositoryMetrics(repoPath);
+  const hash = require('crypto')
+    .createHash('sha256')
+    .update(JSON.stringify({ files: fileEntries, totalBytes: metrics.totalBytes }))
+    .digest('hex');
+
+  return { ...metrics, hash };
 };
 
 /**
@@ -213,7 +296,11 @@ const detectLanguages = (dirPath) => {
 
 module.exports = {
   cloneRepository,
+  estimateRepositorySize,
   extractZip,
+  computeZipArchiveMetrics,
+  computeRepositoryMetrics,
+  computeRepoFingerprint,
   buildFileTree,
   detectLanguages,
   removeDir,

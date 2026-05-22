@@ -10,6 +10,8 @@ export const AppProvider = ({ children }) => {
   const [selectedFileContent, setSelectedFileContent] = useState(null);
   const [highlightedLines, setHighlightedLines] = useState(null);
   const [activeTab, setActiveTab] = useState('chat');
+  const [usage, setUsage] = useState(null);
+  const [settings, setSettings] = useState(null);
   const [indexingStatus, setIndexingStatus] = useState(null);
   const [cloneProgress, setCloneProgress] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -49,7 +51,22 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  useEffect(() => { fetchRepos(); }, []);
+  const fetchUserSettings = async () => {
+    try {
+      const res = await axiosInstance.get('/user/settings');
+      if (res.data?.success) {
+        setSettings(res.data.data);
+        setUsage(res.data.data.usage);
+      }
+    } catch (err) {
+      console.error('Failed to fetch user settings:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchRepos();
+    fetchUserSettings();
+  }, []);
 
   const loadRepoDetails = async (repoId) => {
     try {
@@ -63,6 +80,10 @@ export const AppProvider = ({ children }) => {
     } catch (err) {
       console.error('Failed to load repo details:', err);
     }
+  };
+
+  const refreshUserSettings = async () => {
+    await fetchUserSettings();
   };
 
   const selectFile = async (relativeFilePath) => {
@@ -86,6 +107,9 @@ export const AppProvider = ({ children }) => {
     <AppContext.Provider
       value={{
         repos, setRepos, fetchRepos,
+        usage,
+        settings,
+        refreshUserSettings,
         activeRepo, setActiveRepo, loadRepoDetails,
         selectedFilePath, setSelectedFilePath,
         selectedFileContent, setSelectedFileContent,

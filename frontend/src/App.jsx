@@ -5,7 +5,10 @@ import ChatInterface from './components/ChatInterface';
 import FileViewer from './components/FileViewer';
 import DependencyGraph from './components/DependencyGraph';
 import CommitSummarizer from './components/CommitSummarizer';
-import { MessageSquare, GitFork, History, LogOut, User } from 'lucide-react';
+import UsagePanel from './components/UsagePanel';
+import SettingsPanel from './components/SettingsPanel';
+import AdminDashboard from './components/AdminDashboard';
+import { MessageSquare, GitFork, History, BarChart3, Settings, ShieldCheck, LogOut, User } from 'lucide-react';
 import api, { axiosInstance } from './services/api';
 
 // ── Auth Screen ──────────────────────────────────────────────────────────────
@@ -95,7 +98,10 @@ function AuthScreen({ onAuth }) {
 
 // ── Workspace ────────────────────────────────────────────────────────────────
 function WorkspaceLayout({ user, onLogout }) {
-  const { activeTab, setActiveTab } = useContext(AppContext);
+  const { activeTab, setActiveTab, usage, settings, refreshUserSettings } = useContext(AppContext);
+  const [showAdminPortal, setShowAdminPortal] = useState(false);
+
+  const isAdmin = settings?.user?.isAdmin;
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-slate-100 font-sans">
@@ -112,6 +118,8 @@ function WorkspaceLayout({ user, onLogout }) {
               { id: 'chat', label: 'Monaco Inspector', icon: <MessageSquare className="w-4 h-4 text-yellow-500" /> },
               { id: 'graph', label: 'Architecture Graph', icon: <GitFork className="w-4 h-4 text-emerald-500" /> },
               { id: 'commits', label: 'Commit Summary', icon: <History className="w-4 h-4 text-blue-400" /> },
+              { id: 'usage', label: 'Usage', icon: <BarChart3 className="w-4 h-4 text-fuchsia-500" /> },
+              { id: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4 text-cyan-400" /> },
             ].map(tab => (
               <button
                 key={tab.id}
@@ -126,6 +134,15 @@ function WorkspaceLayout({ user, onLogout }) {
               </button>
             ))}
           </div>
+
+          {isAdmin && (
+            <button
+              onClick={() => setShowAdminPortal(true)}
+              className="rounded-2xl border border-amber-500 bg-amber-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-amber-200 hover:bg-amber-500/20 transition-colors"
+            >
+              Open Admin Portal
+            </button>
+          )}
 
           {/* User info + logout */}
           <div className="flex items-center gap-2 px-3">
@@ -144,9 +161,17 @@ function WorkspaceLayout({ user, onLogout }) {
         </div>
 
         <div className="flex-1 min-h-0">
-          {activeTab === 'chat' && <FileViewer />}
-          {activeTab === 'graph' && <DependencyGraph />}
-          {activeTab === 'commits' && <CommitSummarizer />}
+          {showAdminPortal ? (
+            <AdminDashboard onClose={() => setShowAdminPortal(false)} />
+          ) : (
+            <>
+              {activeTab === 'chat' && <FileViewer />}
+              {activeTab === 'graph' && <DependencyGraph />}
+              {activeTab === 'commits' && <CommitSummarizer />}
+              {activeTab === 'usage' && <UsagePanel usage={usage} limits={settings?.limits || { aiRequests: 20, repoClones: 3, embeddingRequests: 5 }} />}
+              {activeTab === 'settings' && <SettingsPanel usage={usage} user={settings?.user} onReload={refreshUserSettings} limits={settings?.limits || { aiRequests: 20, repoClones: 3, embeddingRequests: 5 }} />}
+            </>
+          )}
         </div>
       </div>
     </div>

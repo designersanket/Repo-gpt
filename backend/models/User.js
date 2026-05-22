@@ -23,6 +23,22 @@ const UserSchema = new mongoose.Schema({
     minlength: 6,
     select: false, // Don't return password hash by default
   },
+  apiKeyEncrypted: {
+    type: String,
+    select: false,
+  },
+  apiProvider: {
+    type: String,
+    enum: ['openai', 'gemini', 'platform'],
+    default: 'platform',
+  },
+  apiKeySetAt: {
+    type: Date,
+  },
+  isAdmin: {
+    type: Boolean,
+    default: false,
+  },
   createdAt: {
     type: Date,
     default: Date.now,

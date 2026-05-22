@@ -2,8 +2,9 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { cloneRepo, uploadZip, getRepos, getRepoById, deleteRepo, getFileContent, reindexRepo } = require('../controllers/repoController');
+const { cloneRepo, uploadZip, getRepos, getRepoById, deleteRepo, getFileContent, reindexRepo, refreshEmbeddings } = require('../controllers/repoController');
 const { protect } = require('./authMiddleware');
+const { validateCloneQuota, validateEmbeddingQuota } = require('../middleware/quotaValidator');
 
 const router = express.Router();
 
@@ -34,9 +35,10 @@ const upload = multer({
   },
 });
 
-router.post('/clone', protect, cloneRepo);
+router.post('/clone', protect, validateCloneQuota, cloneRepo);
 router.post('/upload', protect, upload.single('file'), uploadZip);
 router.post('/:id/reindex', protect, reindexRepo);
+router.post('/:id/embeddings/refresh', protect, validateEmbeddingQuota, refreshEmbeddings);
 router.get('/', protect, getRepos);
 router.get('/:id', protect, getRepoById);
 router.get('/:id/file', protect, getFileContent);
