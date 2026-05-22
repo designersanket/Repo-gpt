@@ -1,60 +1,38 @@
 import axios from 'axios';
 
-const BASE_URL = import.meta.env.VITE_BACKEND_URL;
+const BASE_URL = import.meta.env.VITE_BACKEND_URL || '';
 
-const axiosInstance = axios.create({
+export const axiosInstance = axios.create({
   baseURL: `${BASE_URL}/api`,
 });
 
 const token = localStorage.getItem('token');
-
 if (token) {
   axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 }
 
 const api = {
-  // Authentication
   login: async (email, password) => {
-    const res = await axiosInstance.post('/auth/login', {
-      email,
-      password,
-    });
-
+    const res = await axiosInstance.post('/auth/login', { email, password });
     if (res.data?.token) {
       localStorage.setItem('token', res.data.token);
-
-      axiosInstance.defaults.headers.common[
-        'Authorization'
-      ] = `Bearer ${res.data.token}`;
+      axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
     }
-
     return res.data;
   },
 
   register: async (username, email, password) => {
-    const res = await axiosInstance.post('/auth/register', {
-      username,
-      email,
-      password,
-    });
-
+    const res = await axiosInstance.post('/auth/register', { username, email, password });
     if (res.data?.token) {
       localStorage.setItem('token', res.data.token);
-
-      axiosInstance.defaults.headers.common[
-        'Authorization'
-      ] = `Bearer ${res.data.token}`;
+      axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
     }
-
     return res.data;
   },
 
   logout: () => {
     localStorage.removeItem('token');
-
-    delete axiosInstance.defaults.headers.common[
-      'Authorization'
-    ];
+    delete axiosInstance.defaults.headers.common['Authorization'];
   },
 
   // Repositories
