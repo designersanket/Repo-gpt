@@ -1,94 +1,142 @@
 import axios from 'axios';
 
-// API Axios instances (using local Vite server proxy)
-axios.defaults.baseURL = '';
+const BASE_URL = import.meta.env.VITE_BACKEND_URL;
+
+const axiosInstance = axios.create({
+  baseURL: `${BASE_URL}/api`,
+});
+
+const token = localStorage.getItem('token');
+
+if (token) {
+  axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+}
 
 const api = {
   // Authentication
   login: async (email, password) => {
-    const res = await axios.post('/api/auth/login', { email, password });
+    const res = await axiosInstance.post('/auth/login', {
+      email,
+      password,
+    });
+
     if (res.data?.token) {
       localStorage.setItem('token', res.data.token);
-      axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
+
+      axiosInstance.defaults.headers.common[
+        'Authorization'
+      ] = `Bearer ${res.data.token}`;
     }
+
     return res.data;
   },
 
   register: async (username, email, password) => {
-    const res = await axios.post('/api/auth/register', { username, email, password });
+    const res = await axiosInstance.post('/auth/register', {
+      username,
+      email,
+      password,
+    });
+
     if (res.data?.token) {
       localStorage.setItem('token', res.data.token);
-      axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
+
+      axiosInstance.defaults.headers.common[
+        'Authorization'
+      ] = `Bearer ${res.data.token}`;
     }
+
     return res.data;
   },
 
   logout: () => {
     localStorage.removeItem('token');
-    delete axios.defaults.headers.common['Authorization'];
+
+    delete axiosInstance.defaults.headers.common[
+      'Authorization'
+    ];
   },
 
-  // Repositories Ingestion
+  // Repositories
   getRepos: async () => {
-    const res = await axios.get('/api/repos');
+    const res = await axiosInstance.get('/repos');
     return res.data;
   },
 
   getRepoById: async (id) => {
-    const res = await axios.get(`/api/repos/${id}`);
+    const res = await axiosInstance.get(`/repos/${id}`);
     return res.data;
   },
 
   cloneRepo: async (gitUrl, name) => {
-    const res = await axios.post('/api/repos/clone', { gitUrl, name });
+    const res = await axiosInstance.post('/repos/clone', {
+      gitUrl,
+      name,
+    });
+
     return res.data;
   },
 
   uploadZip: async (formData) => {
-    const res = await axios.post('/api/repos/upload', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    const res = await axiosInstance.post(
+      '/repos/upload',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+
     return res.data;
   },
 
   reindexRepo: async (id) => {
-    const res = await axios.post(`/api/repos/${id}/reindex`);
+    const res = await axiosInstance.post(
+      `/repos/${id}/reindex`
+    );
+
     return res.data;
   },
 
   deleteRepo: async (id) => {
-    const res = await axios.delete(`/api/repos/${id}`);
+    const res = await axiosInstance.delete(`/repos/${id}`);
     return res.data;
   },
 
-  // Code retrieval and chats
+  // Chat / AI
   queryRepo: async (repoId, query) => {
-    const res = await axios.post('/api/chat/query', { repoId, query });
+    const res = await axiosInstance.post('/chat/query', {
+      repoId,
+      query,
+    });
+
     return res.data;
   },
 
   getChatHistory: async (repoId) => {
-    const res = await axios.get(`/api/chat/history/${repoId}`);
+    const res = await axiosInstance.get(
+      `/chat/history/${repoId}`
+    );
+
     return res.data;
   },
 
   getDependencies: async (repoId) => {
-    const res = await axios.get(`/api/chat/dependencies/${repoId}`);
+    const res = await axiosInstance.get(
+      `/chat/dependencies/${repoId}`
+    );
+
     return res.data;
   },
 
   getCommits: async (repoId) => {
-    const res = await axios.get(`/api/chat/commits/${repoId}`);
+    const res = await axiosInstance.get(
+      `/chat/commits/${repoId}`
+    );
+
     return res.data;
   },
 };
-
-// Initialize Authorization header from local storage on bootstrap
-const token = localStorage.getItem('token');
-if (token) {
-  axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-}
 
 export default api;
