@@ -4,19 +4,16 @@ import { AppContext } from '../context/AppContext';
 
 export const useWebSocket = () => {
   const socketRef = useRef(null);
-
-  const {
-    setIndexingStatus,
-    setCloneProgress,
-    fetchRepos,
-    loadRepoDetails,
-  } = useContext(AppContext);
+  const { setIndexingStatus, setCloneProgress, fetchRepos, loadRepoDetails } = useContext(AppContext);
 
   useEffect(() => {
-    socketRef.current = io(import.meta.env.VITE_BACKEND_URL, {
+    const token = localStorage.getItem('token');
+    if (!token) return; // Don't connect if not logged in
+
+    socketRef.current = io(import.meta.env.VITE_BACKEND_URL || window.location.origin, {
       path: '/code-mind-socket.io',
       transports: ['websocket', 'polling'],
-      autoConnect: true,
+      auth: { token }, // Send JWT for server-side auth
     });
 
     socketRef.current.on('connect', () => {
@@ -24,41 +21,22 @@ export const useWebSocket = () => {
     });
 
     socketRef.current.on('connect_error', (err) => {
-      console.error('WebSocket Connection Error:', err);
+      console.error('WebSocket error:', err.message);
     });
 
-    // High-level indexing progress
     socketRef.current.on('indexing-progress', (data) => {
-      console.log('Indexing Progress:', data);
-
-      setIndexingStatus({
-        repoId: data.repoId,
-        status: data.status,
-        progress: data.progress,
-        error: data.error,
-      });
-
+      setIndexingStatus({ repoId: data.repoId, status: data.status, progress: data.progress, error: data.error });
       if (data.status === 'ready' || data.status === 'failed') {
         fetchRepos();
-
-        if (data.status === 'ready') {
-          loadRepoDetails(data.repoId);
-        }
+        if (data.status === 'ready') loadRepoDetails(data.repoId);
       }
     });
 
-    // Git clone progress
     socketRef.current.on('clone-progress', (data) => {
-      console.log('Clone Progress:', data);
-
       setCloneProgress({
-        repoId: data.repoId,
-        stage: data.stage,
-        percentage: data.percentage,
-        receivedObjects: data.receivedObjects,
-        totalObjects: data.totalObjects,
-        transferred: data.transferred,
-        speed: data.speed,
+        repoId: data.repoId, stage: data.stage, percentage: data.percentage,
+        receivedObjects: data.receivedObjects, totalObjects: data.totalObjects,
+        transferred: data.transferred, speed: data.speed,
       });
     });
 
@@ -66,13 +44,12 @@ export const useWebSocket = () => {
       console.log('Disconnected from RepoGPT WebSockets.');
     });
 
-    return () => {
-      socketRef.current?.disconnect();
-    };
+    return () => socketRef.current?.disconnect();
   }, []);
 
+  // join-repo no longer needed — user room is auto-joined on connect
   const joinRepoRoom = (repoId) => {
-    if (socketRef.current && repoId) {
+    if (socketRef.current?.connected && repoId) {
       socketRef.current.emit('join-repo', repoId);
     }
   };

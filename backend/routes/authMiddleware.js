@@ -4,51 +4,22 @@ const User = require('../models/User');
 const JWT_SECRET = process.env.JWT_SECRET || 'codemind-super-secret-key-123';
 
 const protect = async (req, res, next) => {
-  let token;
-
-  if (
-    req.headers.authorization &&
-    req.headers.authorization.startsWith('Bearer')
-  ) {
-    token = req.headers.authorization.split(' ')[1];
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ success: false, error: 'Not authorized. Please log in.' });
   }
 
-  // Fallback for easy local development (Guest Mode)
-  if (!token) {
-    req.user = {
-      _id: '000000000000000000000000', // Mock ObjectId
-      username: 'guest',
-      email: 'guest@codemind.local',
-    };
-    return next();
-  }
-
+  const token = authHeader.split(' ')[1];
   try {
-    // Verify token
     const decoded = jwt.verify(token, JWT_SECRET);
-    
-    // Find user
-    const user = await User.findById(decoded.id);
+    const user = await User.findById(decoded.id).select('-password');
     if (!user) {
-      // Fallback if user was deleted
-      req.user = {
-        _id: '000000000000000000000000',
-        username: 'guest',
-        email: 'guest@codemind.local',
-      };
-      return next();
+      return res.status(401).json({ success: false, error: 'User no longer exists.' });
     }
-    
     req.user = user;
     next();
-  } catch (error) {
-    // Return unauthorized or fallback to guest for development
-    req.user = {
-      _id: '000000000000000000000000',
-      username: 'guest',
-      email: 'guest@codemind.local',
-    };
-    next();
+  } catch {
+    return res.status(401).json({ success: false, error: 'Invalid or expired token.' });
   }
 };
 

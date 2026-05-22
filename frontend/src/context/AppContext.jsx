@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect } from 'react';
-import api, { axiosInstance } from '../services/api';
+import { axiosInstance } from '../services/api';
 
 export const AppContext = createContext();
 
@@ -13,6 +13,22 @@ export const AppProvider = ({ children }) => {
   const [indexingStatus, setIndexingStatus] = useState(null);
   const [cloneProgress, setCloneProgress] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
+
+  // Global 401 interceptor — auto-logout on expired/invalid token
+  useEffect(() => {
+    const interceptor = axiosInstance.interceptors.response.use(
+      res => res,
+      err => {
+        if (err.response?.status === 401) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          window.location.reload();
+        }
+        return Promise.reject(err);
+      }
+    );
+    return () => axiosInstance.interceptors.response.eject(interceptor);
+  }, []);
 
   const fetchRepos = async () => {
     try {
