@@ -4,17 +4,15 @@ const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
 
 const aiClient = axios.create({
   baseURL: `${AI_SERVICE_URL}/api`,
-  timeout: 300000, // Large timeout for indexing (5 minutes)
+  timeout: 300000,
 });
 
-/**
- * Triggers FAISS indexing in the Python AI Service.
- */
-const indexRepository = async (repoId, repoPath) => {
+const indexRepository = async (repoId, repoPath, gitUrl) => {
   try {
     const res = await aiClient.post('/index', {
       repo_id: repoId,
       repo_path: repoPath,
+      git_url: gitUrl || null,
     });
     return res.data;
   } catch (error) {
@@ -23,16 +21,9 @@ const indexRepository = async (repoId, repoPath) => {
   }
 };
 
-/**
- * Queries the FAISS RAG system.
- */
 const queryRepository = async (repoId, query, k = 6) => {
   try {
-    const res = await aiClient.post('/query', {
-      repo_id: repoId,
-      query,
-      k,
-    });
+    const res = await aiClient.post('/query', { repo_id: repoId, query, k });
     return res.data;
   } catch (error) {
     console.error('AI Service Query Failed:', error.response?.data || error.message);
@@ -40,14 +31,12 @@ const queryRepository = async (repoId, query, k = 6) => {
   }
 };
 
-/**
- * Extracts imports graph connections.
- */
-const getDependencies = async (repoId, repoPath) => {
+const getDependencies = async (repoId, repoPath, gitUrl) => {
   try {
     const res = await aiClient.post('/dependencies', {
       repo_id: repoId,
       repo_path: repoPath,
+      git_url: gitUrl || null,
     });
     return res.data;
   } catch (error) {
@@ -56,13 +45,11 @@ const getDependencies = async (repoId, repoPath) => {
   }
 };
 
-/**
- * Summarizes commits logs.
- */
-const summarizeCommits = async (repoPath) => {
+const summarizeCommits = async (repoPath, gitUrl) => {
   try {
     const res = await aiClient.post('/summarize-commits', {
       repo_path: repoPath,
+      git_url: gitUrl || null,
     });
     return res.data;
   } catch (error) {

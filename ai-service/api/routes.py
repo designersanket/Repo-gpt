@@ -1,6 +1,8 @@
 import os
 import re
+import shutil
 import subprocess
+import tempfile
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
@@ -20,6 +22,7 @@ retriever = CodeRetriever()
 class IndexRequest(BaseModel):
     repo_id: str
     repo_path: str
+    git_url: Optional[str] = None
 
 class QueryRequest(BaseModel):
     repo_id: str
@@ -29,23 +32,36 @@ class QueryRequest(BaseModel):
 class DependenciesRequest(BaseModel):
     repo_id: str
     repo_path: str
+    git_url: Optional[str] = None
 
 class SummarizeRequest(BaseModel):
     repo_path: str
+    git_url: Optional[str] = None
 
 @router.post("/index")
 async def index_repository(req: IndexRequest):
     repo_path = req.repo_path.replace("\\", "/") if req.repo_path else req.repo_path
+    tmp_dir = None
+
+    # If path doesn't exist on this filesystem, clone from git_url into a temp dir
     if not os.path.exists(repo_path):
-        raise HTTPException(status_code=404, detail=f"Repository path does not exist: {repo_path}")
-        
+        if not req.git_url or req.git_url == "uploaded_zip":
+            raise HTTPException(status_code=404, detail=f"Repository path does not exist and no git_url provided: {repo_path}")
+        try:
+            tmp_dir = tempfile.mkdtemp(prefix=f"repogpt_{req.repo_id}_")
+            subprocess.run(
+                ["git", "clone", "--depth", "1", req.git_url, tmp_dir],
+                check=True, capture_output=True, text=True
+            )
+            repo_path = tmp_dir
+        except subprocess.CalledProcessError as e:
+            raise HTTPException(status_code=500, detail=f"Git clone failed: {e.stderr}")
+
     try:
-        # 1. Scan files
         files = FileScanner.scan(repo_path)
         if not files:
             return {"status": "success", "message": "No code files found to index", "indexed_files": 0, "total_chunks": 0}
 
-        # 2. Chunk files using AST parser
         all_chunks = []
         for filepath in files:
             success, content = FileScanner.read_file_safe(filepath)
@@ -56,12 +72,9 @@ async def index_repository(req: IndexRequest):
         if not all_chunks:
             return {"status": "success", "message": "No valid code chunks generated", "indexed_files": len(files), "total_chunks": 0}
 
-        # 3. Generate embeddings
         embedder = GeminiEmbedder()
-        chunk_texts = [c["chunk_text"] for c in all_chunks]
-        embeddings = embedder.embed_chunks(chunk_texts)
+        embeddings = embedder.embed_chunks([c["chunk_text"] for c in all_chunks])
 
-        # 4. Save to FAISS
         store = FAISSStore(req.repo_id)
         store.build_and_save(all_chunks, embeddings)
 
@@ -69,10 +82,14 @@ async def index_repository(req: IndexRequest):
             "status": "success",
             "indexed_files": len(files),
             "total_chunks": len(all_chunks),
-            "message": f"Successfully indexed {len(files)} files and generated {len(all_chunks)} semantic chunks."
+            "message": f"Successfully indexed {len(files)} files into {len(all_chunks)} chunks."
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Indexing failed: {str(e)}")
+    finally:
+        # Clean up temp clone dir to save disk space
+        if tmp_dir and os.path.exists(tmp_dir):
+            shutil.rmtree(tmp_dir, ignore_errors=True)
 
 @router.post("/query")
 async def query_repository(req: QueryRequest):
@@ -85,8 +102,17 @@ async def query_repository(req: QueryRequest):
 @router.post("/dependencies")
 async def get_dependencies(req: DependenciesRequest):
     repo_path = req.repo_path.replace("\\", "/") if req.repo_path else req.repo_path
+    tmp_dir = None
+
     if not os.path.exists(repo_path):
-        raise HTTPException(status_code=404, detail="Repository path does not exist")
+        if not req.git_url or req.git_url == "uploaded_zip":
+            raise HTTPException(status_code=404, detail="Repository path does not exist and no git_url provided")
+        try:
+            tmp_dir = tempfile.mkdtemp(prefix=f"repogpt_{req.repo_id}_")
+            subprocess.run(["git", "clone", "--depth", "1", req.git_url, tmp_dir], check=True, capture_output=True)
+            repo_path = tmp_dir
+        except subprocess.CalledProcessError as e:
+            raise HTTPException(status_code=500, detail=f"Git clone failed: {e.stderr}")
 
     try:
         files = FileScanner.scan(repo_path)
@@ -163,30 +189,42 @@ async def get_dependencies(req: DependenciesRequest):
         return {"nodes": nodes, "edges": unique_edges}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Dependency analysis failed: {str(e)}")
+    finally:
+        if tmp_dir and os.path.exists(tmp_dir):
+            shutil.rmtree(tmp_dir, ignore_errors=True)
 
 @router.post("/summarize-commits")
 async def summarize_commits(req: SummarizeRequest):
     repo_path = req.repo_path.replace("\\", "/") if req.repo_path else req.repo_path
+    tmp_dir = None
+    git_log = None
+
     if not os.path.exists(repo_path):
-        raise HTTPException(status_code=404, detail="Repository path does not exist")
-        
-    try:
-        # Call local git log command
-        result = subprocess.run(
-            ["git", "log", "-n", "15", "--oneline", "--stat"],
-            cwd=repo_path,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            check=True
-        )
-        git_log = result.stdout
-    except Exception as e:
-        # Fallback if git is not initialized
-        git_log = "Could not read git commits. The repository may not be initialized with git or has no commits yet."
+        if req.git_url and req.git_url != "uploaded_zip":
+            try:
+                tmp_dir = tempfile.mkdtemp(prefix="repogpt_commits_")
+                subprocess.run(["git", "clone", "--depth", "15", req.git_url, tmp_dir], check=True, capture_output=True)
+                repo_path = tmp_dir
+            except Exception:
+                git_log = "Could not clone repository to read commits."
+        else:
+            git_log = "Could not read git commits: repository not available on this server."
+
+    if git_log is None:
+        try:
+            result = subprocess.run(
+                ["git", "log", "-n", "15", "--oneline", "--stat"],
+                cwd=repo_path, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True
+            )
+            git_log = result.stdout
+        except Exception:
+            git_log = "Could not read git commits."
+
+    if tmp_dir and os.path.exists(tmp_dir):
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
     if not settings.GEMINI_API_KEY:
-        return {"summary": "Gemini key not configured. Git history:\n\n" + git_log}
+        return {"summary": "Gemini key not configured.\n\n" + git_log}
 
     try:
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
@@ -199,4 +237,4 @@ Git Log:
         response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
         return {"summary": response.text}
     except Exception as e:
-        return {"summary": f"Failed to generate commit summary with Gemini: {str(e)}\n\nRaw log:\n{git_log}"}
+        return {"summary": f"Failed to generate commit summary: {str(e)}\n\nRaw log:\n{git_log}"}

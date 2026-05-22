@@ -88,7 +88,7 @@ exports.getDependenciesGraph = async (req, res) => {
       return res.status(404).json({ success: false, error: 'Repository not found' });
     }
 
-    const graph = await aiServiceClient.getDependencies(repoId, repo.pathOnDisk);
+    const graph = await aiServiceClient.getDependencies(repoId, repo.pathOnDisk, repo.gitUrl);
     res.status(200).json({ success: true, data: graph });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -107,7 +107,7 @@ exports.getCommitSummary = async (req, res) => {
       return res.status(404).json({ success: false, error: 'Repository not found' });
     }
 
-    const summary = await aiServiceClient.summarizeCommits(repo.pathOnDisk);
+    const summary = await aiServiceClient.summarizeCommits(repo.pathOnDisk, repo.gitUrl);
     res.status(200).json({ success: true, data: summary });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

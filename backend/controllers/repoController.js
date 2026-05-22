@@ -47,7 +47,7 @@ const runBackgroundIndexing = async (repo, isZipUpload = false, tempZipPath = nu
 
     // 3. Trigger FAISS embeddings and indexing in python service
     socketHandler.emitProgress(repoId, 'indexing', 70);
-    await aiServiceClient.indexRepository(repoId, repoPath);
+    await aiServiceClient.indexRepository(repoId, repoPath, repo.gitUrl);
 
     // 4. Ingestion complete
     repo.status = 'ready';
@@ -251,7 +251,7 @@ exports.reindexRepo = async (req, res) => {
     (async () => {
       try {
         socketHandler.emitProgress(repo._id.toString(), 'indexing', 70);
-        await aiServiceClient.indexRepository(repo._id.toString(), repoPath);
+        await aiServiceClient.indexRepository(repo._id.toString(), repoPath, repo.gitUrl);
         repo.status = 'ready';
         repo.progress = 100;
         await repo.save();
