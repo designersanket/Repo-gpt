@@ -1,0 +1,16 @@
+[
+  {
+    "filepath": "c:/Users/sanke/Documents/RepoGPT/repositories/6a1a600205483ecee88fa0ad\\index.js",
+    "relative_path": "index.js",
+    "node_type": "module",
+    "name": "index.js",
+    "start_line": 1,
+    "end_line": 11,
+    "code": "function press(value){\n    document.getElementById(\"display\").value += value;\n}\n\nfunction calculate(){\n    let result = eval(document.getElementById(\"display\").value);\n    document.getElementById(\"display\").value = result;\n}\nfunction clearDisplay(){\n    document.getElementById(\"display\").value = \"\";\n}",
+    "language": "plaintext",
+    "metadata": {
+      "language": "plaintext"
+    },
+    "chunk_text": "File: index.js\nType: module\nName: index.js\nLines: 1-11\nCode:\nfunction press(value){\n    document.getElementById(\"display\").value += value;\n}\n\nfunction calculate(){\n    let result = eval(document.getElementById(\"display\").value);\n    document.getElementById(\"display\").value = result;\n}\nfunction clearDisplay(){\n    document.getElementById(\"display\").value = \"\";\n}"
+  }
+]

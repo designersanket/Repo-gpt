@@ -1,0 +1,72 @@
+[
+  {
+    "filepath": "c:/Users/sanke/Documents/RepoGPT/repositories/6a10810d9de6a4a610cee39b\\src\\main.ts",
+    "relative_path": "src/main.ts",
+    "node_type": "module",
+    "name": "main.ts",
+    "start_line": 1,
+    "end_line": 6,
+    "code": "import { bootstrapApplication } from '@angular/platform-browser';\nimport { appConfig } from './app/app.config';\nimport { AppComponent } from './app/app.component';\n\nbootstrapApplication(AppComponent, appConfig)\n  .catch((err) => console.error(err));\n",
+    "language": "plaintext",
+    "metadata": {
+      "language": "plaintext"
+    },
+    "chunk_text": "File: src/main.ts\nType: module\nName: main.ts\nLines: 1-6\nCode:\nimport { bootstrapApplication } from '@angular/platform-browser';\nimport { appConfig } from './app/app.config';\nimport { AppComponent } from './app/app.component';\n\nbootstrapApplication(AppComponent, appConfig)\n  .catch((err) => console.error(err));\n"
+  },
+  {
+    "filepath": "c:/Users/sanke/Documents/RepoGPT/repositories/6a10810d9de6a4a610cee39b\\src\\app\\app.component.spec.ts",
+    "relative_path": "src/app/app.component.spec.ts",
+    "node_type": "module",
+    "name": "app.component.spec.ts",
+    "start_line": 1,
+    "end_line": 29,
+    "code": "import { TestBed } from '@angular/core/testing';\nimport { AppComponent } from './app.component';\n\ndescribe('AppComponent', () => {\n  beforeEach(async () => {\n    await TestBed.configureTestingModule({\n      imports: [AppComponent],\n    }).compileComponents();\n  });\n\n  it('should create the app', () => {\n    const fixture = TestBed.createComponent(AppComponent);\n    const app = fixture.componentInstance;\n    expect(app).toBeTruthy();\n  });\n\n  it(`should have the 'CounterApp' title`, () => {\n    const fixture = TestBed.createComponent(AppComponent);\n    const app = fixture.componentInstance;\n    expect(app.title).toEqual('CounterApp');\n  });\n\n  it('should render title', () => {\n    const fixture = TestBed.createComponent(AppComponent);\n    fixture.detectChanges();\n    const compiled = fixture.nativeElement as HTMLElement;\n    expect(compiled.querySelector('h1')?.textContent).toContain('Hello, CounterApp');\n  });\n});\n",
+    "language": "plaintext",
+    "metadata": {
+      "language": "plaintext"
+    },
+    "chunk_text": "File: src/app/app.component.spec.ts\nType: module\nName: app.component.spec.ts\nLines: 1-29\nCode:\nimport { TestBed } from '@angular/core/testing';\nimport { AppComponent } from './app.component';\n\ndescribe('AppComponent', () => {\n  beforeEach(async () => {\n    await TestBed.configureTestingModule({\n      imports: [AppComponent],\n    }).compileComponents();\n  });\n\n  it('should create the app', () => {\n    const fixture = TestBed.createComponent(AppComponent);\n    const app = fixture.componentInstance;\n    expect(app).toBeTruthy();\n  });\n\n  it(`should have the 'CounterApp' title`, () => {\n    const fixture = TestBed.createComponent(AppComponent);\n    const app = fixture.componentInstance;\n    expect(app.title).toEqual('CounterApp');\n  });\n\n  it('should render title', () => {\n    const fixture = TestBed.createComponent(AppComponent);\n    fixture.detectChanges();\n    const compiled = fixture.nativeElement as HTMLElement;\n    expect(compiled.querySelector('h1')?.textContent).toContain('Hello, CounterApp');\n  });\n});\n"
+  },
+  {
+    "filepath": "c:/Users/sanke/Documents/RepoGPT/repositories/6a10810d9de6a4a610cee39b\\src\\app\\app.component.ts",
+    "relative_path": "src/app/app.component.ts",
+    "node_type": "module",
+    "name": "app.component.ts",
+    "start_line": 1,
+    "end_line": 26,
+    "code": "import { CommonModule } from '@angular/common';\nimport { Component } from '@angular/core';\nimport { RouterOutlet } from '@angular/router';\n\n@Component({\n  selector: 'app-root',\n  imports: [CommonModule],\n  templateUrl: './app.component.html',\n  styleUrl: './app.component.css'\n})\nexport class AppComponent {\n  title = 'CounterApp';\n  Count = 0;\n  increment(){\n    this.Count++;\n  }\n  decrement(){\n    this.Count--;\n  }\n  double(){\n    this.Count+=2;\n  }\n  reset(){\n    this.Count = 0;\n  }\n}\n",
+    "language": "plaintext",
+    "metadata": {
+      "language": "plaintext"
+    },
+    "chunk_text": "File: src/app/app.component.ts\nType: module\nName: app.component.ts\nLines: 1-26\nCode:\nimport { CommonModule } from '@angular/common';\nimport { Component } from '@angular/core';\nimport { RouterOutlet } from '@angular/router';\n\n@Component({\n  selector: 'app-root',\n  imports: [CommonModule],\n  templateUrl: './app.component.html',\n  styleUrl: './app.component.css'\n})\nexport class AppComponent {\n  title = 'CounterApp';\n  Count = 0;\n  increment(){\n    this.Count++;\n  }\n  decrement(){\n    this.Count--;\n  }\n  double(){\n    this.Count+=2;\n  }\n  reset(){\n    this.Count = 0;\n  }\n}\n"
+  },
+  {
+    "filepath": "c:/Users/sanke/Documents/RepoGPT/repositories/6a10810d9de6a4a610cee39b\\src\\app\\app.config.ts",
+    "relative_path": "src/app/app.config.ts",
+    "node_type": "module",
+    "name": "app.config.ts",
+    "start_line": 1,
+    "end_line": 8,
+    "code": "import { ApplicationConfig, provideZoneChangeDetection } from '@angular/core';\nimport { provideRouter } from '@angular/router';\n\nimport { routes } from './app.routes';\n\nexport const appConfig: ApplicationConfig = {\n  providers: [provideZoneChangeDetection({ eventCoalescing: true }), provideRouter(routes)]\n};\n",
+    "language": "plaintext",
+    "metadata": {
+      "language": "plaintext"
+    },
+    "chunk_text": "File: src/app/app.config.ts\nType: module\nName: app.config.ts\nLines: 1-8\nCode:\nimport { ApplicationConfig, provideZoneChangeDetection } from '@angular/core';\nimport { provideRouter } from '@angular/router';\n\nimport { routes } from './app.routes';\n\nexport const appConfig: ApplicationConfig = {\n  providers: [provideZoneChangeDetection({ eventCoalescing: true }), provideRouter(routes)]\n};\n"
+  },
+  {
+    "filepath": "c:/Users/sanke/Documents/RepoGPT/repositories/6a10810d9de6a4a610cee39b\\src\\app\\app.routes.ts",
+    "relative_path": "src/app/app.routes.ts",
+    "node_type": "module",
+    "name": "app.routes.ts",
+    "start_line": 1,
+    "end_line": 3,
+    "code": "import { Routes } from '@angular/router';\n\nexport const routes: Routes = [];\n",
+    "language": "plaintext",
+    "metadata": {
+      "language": "plaintext"
+    },
+    "chunk_text": "File: src/app/app.routes.ts\nType: module\nName: app.routes.ts\nLines: 1-3\nCode:\nimport { Routes } from '@angular/router';\n\nexport const routes: Routes = [];\n"
+  }
+]
